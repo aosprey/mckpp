@@ -78,36 +78,26 @@ c into the main program.  NPK 17/08/10 - R3
 
       INTEGER (KIND=2) :: nthreads,tid,omp_get_num_threads,
      +  omp_get_thread_num
-      CHARACTER(LEN=21) phys_timer_name
-      CHARACTER(LEN=19) trans_timer_name
+      CHARACTER(LEN=22) phys_timer_name
+      CHARACTER(LEN=20) trans_timer_name
 
       CALL KPP_TIMER_INIT(kpp_timer)
 #ifdef OPENMP
-!$OMP PARALLEL PRIVATE(nthreads)
-      CALL OMP_SET_DYNAMIC(.FALSE.)      
-!$OMP END PARALLEL
+!$OMP PARALLEL DEFAULT(NONE),
+!$OMP& SHARED(kpp_timer,nthreads,phys_timer_name,trans_timer_name)
+!$OMP SINGLE
       nthreads=OMP_GET_NUM_THREADS()
       WRITE(6,*) 'Initialising ',nthreads,'timers'
-      IF (nthreads .le. 1 .or. nthreads .ge. 100) THEN
-#ifdef NEXCS
-#define omp_nthreads 36
-#elif defined ARCHER
-#define omp_nthreads 24
-#else
-#define omp_nthreads 12
-#endif
-         nthreads=omp_nthreads
-         WRITE(6,*) 'setting nthreads = ',nthreads
-         CALL OMP_SET_NUM_THREADS(nthreads)
-      ENDIF
       DO k=0,nthreads-1
-        WRITE(phys_timer_name,'(A19,I2)') 'KPP Physics thread ',k
+        WRITE(phys_timer_name,'(A19,I3)') 'KPP Physics thread ',k
         CALL KPP_TIMER_TIME(kpp_timer,phys_timer_name,1)
         CALL KPP_TIMER_TIME(kpp_timer,phys_timer_name,0)
-        WRITE(trans_timer_name,'(A17,I2)') 'KPP 3D/2D thread ',k
+        WRITE(trans_timer_name,'(A17,I3)') 'KPP 3D/2D thread ',k
         CALL KPP_TIMER_TIME(kpp_timer,trans_timer_name,1)
         CALL KPP_TIMER_TIME(kpp_timer,trans_timer_name,0)
       ENDDO
+!$OMP END SINGLE
+!$OMP END PARALLEL
 #endif
       allocate(VEC_mean(NPTS,NZP1,NVEC_MEAN))
       allocate(SCLR_mean(NPTS,NSCLR_MEAN))
@@ -399,16 +389,13 @@ c         CALL KPP_TIMER_TIME(kpp_timer,'KPP Physics (all)',1)
 !$OMP PARALLEL DEFAULT(PRIVATE) SHARED(kpp_3d_fields,kpp_const_fields)
 !$OMP& PRIVATE(trans_timer_name,phys_timer_name,tid)
 !$OMP& SHARED(kpp_timer,ocnT_file,sal_file,ifirst,jfirst)      
-        tid=OMP_GET_THREAD_NUM()
-!$OMP CRITICAL
-!         WRITE(6,*) 'Thread ',tid
-         WRITE(trans_timer_name,'(A17,I2)') 'KPP 3D/2D thread ',tid
-         WRITE(phys_timer_name,'(A19,I2)') 'KPP Physics thread ',tid
-!$OMP END CRITICAL
+         tid=OMP_GET_THREAD_NUM()
+         WRITE(trans_timer_name,'(A17,I3)') 'KPP 3D/2D thread ',tid
+         WRITE(phys_timer_name,'(A19,I3)') 'KPP Physics thread ',tid
 !$OMP DO SCHEDULE(dynamic)
 #else
-         WRITE(trans_timer_name,'(A19)') 'KPP 3D/2D thread 01'
-         WRITE(phys_timer_name,'(A21)') 'KPP Physics thread 01'
+         WRITE(trans_timer_name,'(A20)') 'KPP 3D/2D thread 01'
+         WRITE(phys_timer_name,'(A22)') 'KPP Physics thread 01'
 #endif
 #ifdef COUPLE
          DO ix=1,NX_GLOBE
